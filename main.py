@@ -1,24 +1,22 @@
 import time
-import os
-from pynput.keyboard import Key, Listener
-import pygetwindow as gw  # Library to check active windows
+import socket
+import pygetwindow as gw
 
 # Configuration
+SERVER_IP = "192.168.239.135"  # Replace with the server's IP address
+SERVER_PORT = 5001
 TARGET_WINDOW_TITLE = "Exam Browser"  # Replace with part of your browser/tab title
-LOG_FILE = "log.txt"
 
-# Initialize counter
 switch_count = 0
 last_active_window = ""
 
-# Function to log events
-def log_event(event):
-    with open(LOG_FILE, "a") as f:
-        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {event}\n")
-    print(event)
+def log_and_send_event(event, client_socket):
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+    message = f"{timestamp} - {event}"
+    print(message)  # Optional: log to console
+    client_socket.sendall(message.encode('utf-8'))  # Send to server
 
-# Function to monitor active window
-def monitor_window():
+def monitor_window(client_socket):
     global switch_count, last_active_window
 
     while True:
@@ -30,31 +28,24 @@ def monitor_window():
             if active_window and TARGET_WINDOW_TITLE not in active_window:
                 if last_active_window != active_window:  # Prevent duplicate logging
                     switch_count += 1
-                    log_event(f"Switched away! Total switches: {switch_count}")
+                    log_and_send_event(f"Switched away! Total switches: {switch_count}", client_socket)
                 last_active_window = active_window
             else:
                 last_active_window = TARGET_WINDOW_TITLE
 
             time.sleep(1)  # Adjust interval as needed
         except Exception as e:
-            log_event(f"Error: {e}")
+            log_and_send_event(f"Error: {e}", client_socket)
             break
 
-# Function to handle key presses (if needed for additional monitoring)
-def anonymous(key):
-    key = str(key).replace("'", "")
-    if key == "Key.f12":  # Exit the program on F12 key
-        log_event("Examination ended. Exiting...")
-        raise SystemExit(0)
-
-# Start monitoring
 if __name__ == "__main__":
-    # Start monitoring the window switches in a separate thread
-    from threading import Thread
+    try:
+        # Connect to the server
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+            client_socket.connect((SERVER_IP, SERVER_PORT))
+            print(f"Connected to server at {SERVER_IP}:{SERVER_PORT}")
 
-    window_thread = Thread(target=monitor_window, daemon=True)
-    window_thread.start()
-
-    # Start key listener (optional)
-    with Listener(on_press=anonymous) as listener:
-        listener.join()
+            # Start monitoring the window
+            monitor_window(client_socket)
+    except Exception as e:
+        print(f"Connection error: {e}")
