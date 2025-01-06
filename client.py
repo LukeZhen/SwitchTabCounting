@@ -1,26 +1,25 @@
 import socket
 
-# Server address
-SERVER_IP = "140.138.243.172"   # Replace with the server's IP address
-PORT = 5001  # Port number to connect to
+# Configuration
+SERVER_IP = "192.168.239.135"  # Listen on all interfaces
+SERVER_PORT = 9999
 
-def send_file(file_path):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-        client_socket.connect((SERVER_IP, PORT))
+def start_server():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.bind((SERVER_IP, SERVER_PORT))
+        server_socket.listen(5)
+        print(f"Server listening on {SERVER_IP}:{SERVER_PORT}")
 
-        # Send the file name
-        file_name = file_path.split("/")[-1]
-        client_socket.sendall(file_name.encode())
-
-        # Send the file content
-        with open(file_path, "rb") as f:
-            while True:
-                data = f.read(1024)
-                if not data:
-                    break
-                client_socket.sendall(data)
-        print(f"File {file_name} sent successfully.")
+        while True:
+            conn, addr = server_socket.accept()
+            with conn:
+                print(f"Connected by {addr}")
+                while True:
+                    data = conn.recv(1024)
+                    if not data:
+                        break
+                    # Decode and print the message
+                    print(f"Received: {data.decode('utf-8')}")
 
 if __name__ == "__main__":
-    file_path = "log.txt"  # Replace with the path of the file to send
-    send_file(file_path)
+    start_server()
